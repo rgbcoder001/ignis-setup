@@ -122,21 +122,21 @@ jobs:
       # Upload the built artifacts as workflow artifacts too
       # (accessible even before the release is published)
       - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ignis-setup-appimage-${{ steps.version.outputs.VERSION }}
           path: src-tauri/target/release/bundle/appimage/*.AppImage
           retention-days: 30
 
       - name: Upload DEB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ignis-setup-deb-${{ steps.version.outputs.VERSION }}
           path: src-tauri/target/release/bundle/deb/*.deb
           retention-days: 30
 
       - name: Upload RPM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ignis-setup-rpm-${{ steps.version.outputs.VERSION }}
           path: src-tauri/target/release/bundle/rpm/*.rpm
