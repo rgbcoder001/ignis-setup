@@ -54,39 +54,7 @@
   },
   "plugins": {
     "shell": {
-      "open": true,
-      "scope": [
-        {
-          "name": "run_script",
-          "cmd": "bash",
-          "args": true,
-          "sidecar": false
-        },
-        {
-          "name": "nmcli",
-          "cmd": "nmcli",
-          "args": true,
-          "sidecar": false
-        },
-        {
-          "name": "flatpak",
-          "cmd": "flatpak",
-          "args": true,
-          "sidecar": false
-        },
-        {
-          "name": "systemctl",
-          "cmd": "systemctl",
-          "args": true,
-          "sidecar": false
-        },
-        {
-          "name": "pkexec",
-          "cmd": "pkexec",
-          "args": true,
-          "sidecar": false
-        }
-      ]
+      "open": true
     }
   }
 }
