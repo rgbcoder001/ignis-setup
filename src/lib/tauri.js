@@ -11,11 +11,8 @@ export const runScript           = (scriptPath)             => invoke("run_bash_
 export const runScriptArgs       = (scriptPath, args)       => invoke("run_bash_script_with_args",   { scriptPath, args });
 export const checkCmdExists      = (cmd)                    => invoke("check_command_exists",        { cmd });
 
-// OS-aware package installs
-export const installPacman       = (pkg)                    => invoke("install_pacman_pkg",          { pkg });
-export const installAur          = (pkg)                    => invoke("install_aur_pkg",             { pkg });
+// Bazzite (Fedora Atomic) package install — layers via rpm-ostree
 export const installRpmOstree    = (pkg)                    => invoke("install_rpm_ostree_pkg",      { pkg });
-export const installApt          = (pkg)                    => invoke("install_apt_pkg",             { pkg });
 
 // ── Network ───────────────────────────────────────────────────────────────────
 export const listConnections     = ()                       => invoke("list_connections");

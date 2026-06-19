@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { APPS, CATEGORIES, getInstallMethod, getOsSupport } from "./lib/apps.js";
 import { checkFlatpak, checkCmdExists,
          installFlatpak, runUjust, runScript, runScriptArgs,
-         installPacman, installAur, installRpmOstree, installApt,
+         installRpmOstree,
          installJellyfin, jellyfinStatus, jellyfinStart, jellyfinStop, jellyfinRestart,
          cloudflaredCheck, cloudflaredInstall, cloudflaredIsLoggedIn, cloudflaredLogin,
          cloudflaredCreateTunnel, cloudflaredWriteConfig, cloudflaredRouteDns,
@@ -125,18 +125,7 @@ function AppsPage({ category, gpuVendor }) {
         if      (method.scriptFile)                          r = await runScript(`./scripts/${method.scriptFile}`);
         else if (method.method === "flatpak" && method.flatpakId)    r = await installFlatpak(method.flatpakId);
         else if (method.method === "ujust"   && method.ujustRecipe)  r = await runUjust(method.ujustRecipe);
-        else if (method.method === "pacman"  && method.pkg)          r = await installPacman(method.pkg);
-        else if (method.method === "aur"     && method.aur)          r = await installAur(method.aur);
         else if (method.method === "rpm-ostree" && method.pkg)       r = await installRpmOstree(method.pkg);
-        else if (method.method === "apt"     && method.pkg)          r = await installApt(method.pkg);
-        else if (method.method === "aur-or-flatpak") {
-          r = await installAur(method.aur).catch(() => null);
-          if (!r?.success && method.flatpakId) { log("  AUR failed — trying Flatpak", "warn"); r = await installFlatpak(method.flatpakId); }
-        }
-        else if (method.method === "pacman-or-flatpak") {
-          r = await installPacman(method.pkg).catch(() => null);
-          if (!r?.success && method.flatpakId) { log("  pacman failed — trying Flatpak", "warn"); r = await installFlatpak(method.flatpakId); }
-        }
         else if (method.method.startsWith("preinstalled")) {
           log(`  ✓ ${app.name} is pre-installed`, "ok"); continue;
         }

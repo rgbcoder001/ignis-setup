@@ -8,9 +8,6 @@ import { isSteamRunning } from "../lib/tauri.js";
 
 const OS_LABEL = {
   "fedora-atomic": { name:"Bazzite / Fedora Atomic", colour:"var(--accent2)", note:"Full support — all features available." },
-  "arch":          { name:"CachyOS / Arch Linux",    colour:"var(--blue)",    note:"Full support — all features available." },
-  "steamos":       { name:"SteamOS",                 colour:"var(--green)",   note:"Most features available. LACT and CoolerControl are not supported." },
-  "debian":        { name:"Ubuntu / Debian",         colour:"var(--purple)",  note:"Most features available. EmuDeck support is community-tested." },
 };
 
 const GPU_LABEL = {

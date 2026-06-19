@@ -33,11 +33,8 @@ pub fn run() {
             run_bash_script,
             run_bash_script_with_args,
             check_command_exists,
-            // App installs — OS-specific
-            install_pacman_pkg,
-            install_aur_pkg,
+            // App installs — Bazzite (Fedora Atomic)
             install_rpm_ostree_pkg,
-            install_apt_pkg,
             // Network
             list_network_interfaces,
             list_connections,

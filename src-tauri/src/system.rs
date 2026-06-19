@@ -26,7 +26,6 @@ pub fn get_system_info() -> SystemInfo {
 
     if let Ok(content) = std::fs::read_to_string("/etc/os-release") {
         let mut id = String::new();
-        let mut id_like = String::new();
         for line in content.lines() {
             let line = line.trim();
             if line.starts_with("PRETTY_NAME=") {
@@ -35,41 +34,21 @@ pub fn get_system_info() -> SystemInfo {
                 info.os_version = line.trim_start_matches("VERSION_ID=").trim_matches('"').to_string();
             } else if line.starts_with("ID=") && !line.starts_with("ID_LIKE") {
                 id = line.trim_start_matches("ID=").trim_matches('"').to_lowercase();
-            } else if line.starts_with("ID_LIKE=") {
-                id_like = line.trim_start_matches("ID_LIKE=").trim_matches('"').to_lowercase();
             }
         }
         info.os_id = id.clone();
 
+        // Ignis targets Bazzite (Fedora Atomic). We still detect the family so
+        // the welcome screen can warn if run elsewhere, but the only supported
+        // path is the atomic/rpm-ostree one.
+        let is_atomic = std::path::Path::new("/run/ostree-booted").exists();
         let family = match id.as_str() {
-            "bazzite"|"silverblue"|"kinoite"|"aurora"|"bluefin"|"ucore" => "fedora-atomic",
-            "steamos"|"holo" => "steamos",
-            "cachyos"|"arch"|"endeavouros"|"garuda"|"manjaro"|"artix" => "arch",
-            "ubuntu"|"debian"|"pop"|"linuxmint"|"elementary"|"neon" => "debian",
-            "fedora"|"nobara" => {
-                if std::path::Path::new("/run/ostree-booted").exists() { "fedora-atomic" } else { "fedora" }
-            },
-            _ => {
-                if id_like.contains("arch") {
-                    if std::path::Path::new("/etc/steamos-release").exists() { "steamos" } else { "arch" }
-                } else if id_like.contains("fedora") || id_like.contains("rhel") {
-                    if std::path::Path::new("/run/ostree-booted").exists() { "fedora-atomic" } else { "fedora" }
-                } else if id_like.contains("debian") || id_like.contains("ubuntu") {
-                    "debian"
-                } else {
-                    "unknown"
-                }
-            }
+            "bazzite" | "silverblue" | "kinoite" | "aurora" | "bluefin" | "ucore" => "fedora-atomic",
+            _ if is_atomic => "fedora-atomic",
+            _ => "unknown",
         };
         info.os_family = family.to_string();
-        info.pkg_manager = match family {
-            "fedora-atomic" => "rpm-ostree",
-            "fedora"        => "dnf",
-            "arch"          => "pacman",
-            "steamos"       => "flatpak-only",
-            "debian"        => "apt",
-            _               => "unknown",
-        }.to_string();
+        info.pkg_manager = if family == "fedora-atomic" { "rpm-ostree" } else { "unknown" }.to_string();
     }
 
     if let Ok(k) = std::fs::read_to_string("/proc/sys/kernel/osrelease") {

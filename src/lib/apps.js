@@ -1,10 +1,11 @@
 // =============================================================================
-// apps.js — Central app catalogue
+// apps.js — Central app catalogue (Bazzite / Fedora Atomic only)
 //
 // Each app has:
-//   installMethods  — map of OS family → install instructions
-//                     "any" is the fallback
-//   osSupport       — level: "full" | "partial" | "unavailable" per OS family
+//   installMethods  — map of OS family → install instructions.
+//                     Ignis targets Bazzite, so this is "fedora-atomic"
+//                     and/or "any" (the fallback, typically a user Flatpak).
+//   osSupport       — support level on Bazzite (fedora-atomic).
 //   gpuSupport      — level: "full" | "partial" | "none" per GPU vendor
 //   checkFlatpakId  — if present, used for install-status check instead of checkCmd
 //                     (needed when the binary isn't in PATH but Flatpak is installed)
@@ -27,10 +28,7 @@ export const APPS = [
       any: { method: "flatpak", flatpakId: "io.github.recol.dlss-updater", scriptFile: "setup-dlss-updater.sh" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",    note: "Installs as user Flatpak" },
-      { family: "arch",          level: "full",    note: "Installs as user Flatpak" },
-      { family: "steamos",       level: "full",    note: "Installs as user Flatpak — survives OS updates" },
-      { family: "debian",        level: "full",    note: "Installs as user Flatpak" },
+      { family: "fedora-atomic", level: "full", note: "Installs as user Flatpak" },
     ],
     gpuSupport: [
       { gpu: "nvidia", level: "full",    note: "Full support including DLSS preset overrides (RTX 20+)" },
@@ -52,10 +50,7 @@ export const APPS = [
       any: { method: "appimage", scriptFile: "setup-optiscaler-client.sh" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",    note: "AppImage installed to ~/.local/bin" },
-      { family: "arch",          level: "full",    note: "AppImage installed to ~/.local/bin" },
-      { family: "steamos",       level: "full",    note: "AppImage in home directory — survives OS updates" },
-      { family: "debian",        level: "full",    note: "AppImage installed to ~/.local/bin" },
+      { family: "fedora-atomic", level: "full", note: "AppImage installed to ~/.local/bin" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full",    note: "Full FSR4 quality on RDNA4 (RX 9000 series)" },
@@ -79,9 +74,6 @@ export const APPS = [
     },
     osSupport: [
       { family: "fedora-atomic", level: "full", note: "Installs to ~/.local/share/Steam/compatibilitytools.d" },
-      { family: "arch",          level: "full", note: "Installs to ~/.local/share/Steam/compatibilitytools.d" },
-      { family: "steamos",       level: "full", note: "Home directory install — survives OS updates" },
-      { family: "debian",        level: "full", note: "Installs to ~/.local/share/Steam/compatibilitytools.d" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "Full support" },
@@ -101,14 +93,10 @@ export const APPS = [
     checkFlatpakId: "com.heroicgameslauncher.hgl",
     preinstalled: false,
     installMethods: {
-      arch: { method: "aur-or-flatpak", aur: "heroic-games-launcher-bin", flatpakId: "com.heroicgameslauncher.hgl" },
-      any:  { method: "flatpak",         flatpakId: "com.heroicgameslauncher.hgl" },
+      any: { method: "flatpak", flatpakId: "com.heroicgameslauncher.hgl" },
     },
     osSupport: [
       { family: "fedora-atomic", level: "full", note: "Installs as user Flatpak" },
-      { family: "arch",          level: "full", note: "Available via AUR (heroic-games-launcher-bin) or Flatpak" },
-      { family: "steamos",       level: "full", note: "Installs as user Flatpak" },
-      { family: "debian",        level: "full", note: "Installs as user Flatpak" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "Full support" },
@@ -131,10 +119,7 @@ export const APPS = [
       any: { method: "flatpak", flatpakId: "com.usebottles.bottles" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",    note: "Installs as user Flatpak" },
-      { family: "arch",          level: "full",    note: "Installs as user Flatpak; also available via AUR: bottles" },
-      { family: "steamos",       level: "full",    note: "Installs as user Flatpak — survives OS updates" },
-      { family: "debian",        level: "full",    note: "Installs as user Flatpak" },
+      { family: "fedora-atomic", level: "full", note: "Installs as user Flatpak" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "Full support via DXVK/VKD3D" },
@@ -154,14 +139,10 @@ export const APPS = [
     checkFlatpakId: "com.github.mtkennerly.ludusavi",
     preinstalled: false,
     installMethods: {
-      arch: { method: "pacman-or-flatpak", pkg: "ludusavi", flatpakId: "com.github.mtkennerly.ludusavi" },
-      any:  { method: "flatpak",           flatpakId: "com.github.mtkennerly.ludusavi" },
+      any: { method: "flatpak", flatpakId: "com.github.mtkennerly.ludusavi" },
     },
     osSupport: [
       { family: "fedora-atomic", level: "full", note: "Installs as user Flatpak" },
-      { family: "arch",          level: "full", note: "Available via pacman (ludusavi) or Flatpak" },
-      { family: "steamos",       level: "full", note: "Installs as user Flatpak — survives OS updates" },
-      { family: "debian",        level: "full", note: "Installs as user Flatpak" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "GPU-agnostic utility" },
@@ -183,15 +164,10 @@ export const APPS = [
     hasEmuDeckPanel: true,
     installMethods: {
       "fedora-atomic": { method: "ujust",  ujustRecipe: "install-emudeck", scriptFile: "setup-emudeck.sh" },
-      arch:            { method: "script", scriptFile: "setup-emudeck.sh" },
-      steamos:         { method: "script", scriptFile: "setup-emudeck.sh" },
       any:             { method: "script", scriptFile: "setup-emudeck.sh" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",    note: "Via ujust install-emudeck" },
-      { family: "arch",          level: "full",    note: "EmuDeck supports Arch-based distros" },
-      { family: "steamos",       level: "full",    note: "Native SteamOS support — EmuDeck's primary target" },
-      { family: "debian",        level: "partial", note: "EmuDeck supports Debian/Ubuntu but testing is limited" },
+      { family: "fedora-atomic", level: "full", note: "Via ujust install-emudeck" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full",    note: "Full support. 4K EFBScale on Dolphin is GPU-intensive; RDNA2+ handles it well." },
@@ -213,14 +189,10 @@ export const APPS = [
     preinstalled: false,
     hasHandbrakePanel: true,
     installMethods: {
-      arch: { method: "pacman-or-flatpak", pkg: "handbrake", flatpakId: "fr.handbrake.ghb", scriptFile: "setup-handbrake.sh" },
-      any:  { method: "flatpak",           flatpakId: "fr.handbrake.ghb",                   scriptFile: "setup-handbrake.sh" },
+      any: { method: "flatpak", flatpakId: "fr.handbrake.ghb", scriptFile: "setup-handbrake.sh" },
     },
     osSupport: [
       { family: "fedora-atomic", level: "full", note: "Installs as user Flatpak" },
-      { family: "arch",          level: "full", note: "Available via pacman (handbrake) or Flatpak" },
-      { family: "steamos",       level: "full", note: "Installs as user Flatpak" },
-      { family: "debian",        level: "full", note: "Installs as user Flatpak" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "SVT-AV1 CPU encoding used in these presets" },
@@ -239,17 +211,11 @@ export const APPS = [
     checkCmd: "mpv",
     preinstalled: false,
     installMethods: {
-      "fedora-atomic": { method: "rpm-ostree", pkg: "mpv",       scriptFile: "setup-mpv-hdr.sh" },
-      arch:            { method: "pacman",     pkg: "mpv",       scriptFile: "setup-mpv-hdr.sh" },
-      steamos:         { method: "flatpak",    flatpakId: "io.mpv.mpv", scriptFile: "setup-mpv-hdr.sh" },
-      debian:          { method: "apt",        pkg: "mpv",       scriptFile: "setup-mpv-hdr.sh" },
+      "fedora-atomic": { method: "rpm-ostree", pkg: "mpv", scriptFile: "setup-mpv-hdr.sh" },
       any:             { method: "flatpak",    flatpakId: "io.mpv.mpv", scriptFile: "setup-mpv-hdr.sh" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",    note: "Installed via rpm-ostree; requires reboot" },
-      { family: "arch",          level: "full",    note: "Installed via pacman (immediate)" },
-      { family: "steamos",       level: "partial", note: "Installed as Flatpak; HDR passthrough still works; config path differs" },
-      { family: "debian",        level: "full",    note: "Installed via apt" },
+      { family: "fedora-atomic", level: "full", note: "Installed via rpm-ostree; requires reboot" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full",    note: "Full HDR passthrough via VA-API" },
@@ -271,10 +237,7 @@ export const APPS = [
       any: { method: "podman-quadlet" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",    note: "Podman is pre-installed on Bazzite" },
-      { family: "arch",          level: "full",    note: "Requires podman: sudo pacman -S podman" },
-      { family: "steamos",       level: "partial", note: "Podman Quadlet works; linger must be enabled manually" },
-      { family: "debian",        level: "full",    note: "Requires podman: sudo apt install podman" },
+      { family: "fedora-atomic", level: "full", note: "Podman is pre-installed on Bazzite" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "HW transcoding via VA-API (enable in Jellyfin dashboard)" },
@@ -297,16 +260,10 @@ export const APPS = [
     installMethods: {
       "fedora-atomic": { method: "ujust", ujustRecipe: "setup-sunshine",
                          note: "Pre-installed on Bazzite — ujust just enables the service" },
-      arch:            { method: "aur-or-flatpak", aur: "sunshine-bin",
-                         flatpakId: "dev.lizardbyte.app.Sunshine" },
-      steamos:         { method: "flatpak", flatpakId: "dev.lizardbyte.app.Sunshine" },
       any:             { method: "flatpak", flatpakId: "dev.lizardbyte.app.Sunshine" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",    note: "Pre-installed on Bazzite; ujust setup-sunshine enables it as a systemd user service" },
-      { family: "arch",          level: "full",    note: "Available via AUR (sunshine-bin) or Flatpak" },
-      { family: "steamos",       level: "full",    note: "Installs as user Flatpak — survives OS updates" },
-      { family: "debian",        level: "full",    note: "Installs as user Flatpak" },
+      { family: "fedora-atomic", level: "full", note: "Pre-installed on Bazzite; ujust setup-sunshine enables it as a systemd user service" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "Hardware-accelerated encoding via VA-API/AMF" },
@@ -327,14 +284,10 @@ export const APPS = [
     preinstalled: false,
     hasOBSPanel: true,
     installMethods: {
-      arch: { method: "pacman-or-flatpak", pkg: "obs-studio", flatpakId: "com.obsproject.Studio", scriptFile: "setup-obs.sh" },
-      any:  { method: "flatpak",           flatpakId: "com.obsproject.Studio",                    scriptFile: "setup-obs.sh" },
+      any: { method: "flatpak", flatpakId: "com.obsproject.Studio", scriptFile: "setup-obs.sh" },
     },
     osSupport: [
       { family: "fedora-atomic", level: "full", note: "Installs as user Flatpak (official OBS recommendation for non-Ubuntu)" },
-      { family: "arch",          level: "full", note: "Available via pacman (obs-studio) or Flatpak" },
-      { family: "steamos",       level: "full", note: "Installs as user Flatpak" },
-      { family: "debian",        level: "full", note: "Installs as user Flatpak (official OBS recommendation)" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "AMF hardware encoder (H.264/HEVC)" },
@@ -355,14 +308,10 @@ export const APPS = [
     preinstalled: false,
     hasDiscordPanel: true,
     installMethods: {
-      arch: { method: "aur-or-flatpak", aur: "discord", flatpakId: "com.discordapp.Discord", scriptFile: "setup-discord.sh" },
-      any:  { method: "flatpak",        flatpakId: "com.discordapp.Discord",                 scriptFile: "setup-discord.sh" },
+      any: { method: "flatpak", flatpakId: "com.discordapp.Discord", scriptFile: "setup-discord.sh" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",    note: "Installs as user Flatpak with Wayland/PipeWire fixes applied" },
-      { family: "arch",          level: "full",    note: "Available via AUR (discord) or Flatpak" },
-      { family: "steamos",       level: "full",    note: "Installs as user Flatpak; Wayland support built-in since 0.0.94" },
-      { family: "debian",        level: "full",    note: "Installs as user Flatpak with Wayland/PipeWire fixes applied" },
+      { family: "fedora-atomic", level: "full", note: "Installs as user Flatpak with Wayland/PipeWire fixes applied" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full",    note: "Full support" },
@@ -387,22 +336,11 @@ export const APPS = [
       // a reboot and layering an Electron app is exactly what the Bazzite docs warn against
       "fedora-atomic": { method: "flatpak", flatpakId: "com.visualstudio.code",
                          scriptFile: "setup-vscode.sh" },
-      // CachyOS/Arch: AUR gives full Microsoft binary (extensions marketplace, telemetry etc)
-      // pacman gives VSCodium (open-source build, same features minus a few MS-specific ones)
-      arch:            { method: "aur-or-flatpak", aur: "visual-studio-code-bin",
-                         flatpakId: "com.visualstudio.code", scriptFile: "setup-vscode.sh" },
-      steamos:         { method: "flatpak", flatpakId: "com.visualstudio.code",
-                         scriptFile: "setup-vscode.sh" },
-      debian:          { method: "script", scriptFile: "setup-vscode.sh",
-                         note: "Installs via Microsoft's official apt repository" },
       any:             { method: "flatpak", flatpakId: "com.visualstudio.code",
                          scriptFile: "setup-vscode.sh" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",    note: "Installs as user Flatpak. Home directory access granted automatically." },
-      { family: "arch",          level: "full",    note: "Full Microsoft binary via AUR (visual-studio-code-bin). Native install, best terminal/file access." },
-      { family: "steamos",       level: "full",    note: "Installs as user Flatpak — survives OS updates." },
-      { family: "debian",        level: "full",    note: "Installs via Microsoft's official apt repository for best update experience." },
+      { family: "fedora-atomic", level: "full", note: "Installs as user Flatpak. Home directory access granted automatically." },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "GPU-accelerated rendering via Electron/Chromium. GPU-agnostic tool." },
@@ -423,16 +361,11 @@ export const APPS = [
     checkFlatpakId: "com.lact.LACT",   // used as fallback when binary not in PATH (Flatpak installs)
     preinstalled: false,
     installMethods: {
-      "fedora-atomic": { method: "ujust",  ujustRecipe: "install-lact" },
-      arch:            { method: "pacman", pkg: "lact" },
-      steamos:         { method: "unavailable" },
+      "fedora-atomic": { method: "ujust",   ujustRecipe: "install-lact" },
       any:             { method: "flatpak", flatpakId: "com.lact.LACT" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",        note: "Via ujust install-lact" },
-      { family: "arch",          level: "full",        note: "Available in official CachyOS/Arch repos: pacman -S lact" },
-      { family: "steamos",       level: "unavailable", note: "LACT daemon requires persistent system access; not compatible with SteamOS immutable root" },
-      { family: "debian",        level: "partial",     note: "Via Flatpak; some features require manual system daemon setup" },
+      { family: "fedora-atomic", level: "full", note: "Via ujust install-lact" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full",    note: "Full support: OC, fan curves, power limit, V/F curve" },
@@ -453,15 +386,10 @@ export const APPS = [
     preinstalled: false,
     installMethods: {
       "fedora-atomic": { method: "ujust",   ujustRecipe: "install-coolercontrol" },
-      arch:            { method: "aur",     aur: "coolercontrol" },
-      steamos:         { method: "unavailable" },
       any:             { method: "flatpak", flatpakId: "org.coolercontrol.CoolerControl" },
     },
     osSupport: [
-      { family: "fedora-atomic", level: "full",        note: "Via ujust install-coolercontrol" },
-      { family: "arch",          level: "full",        note: "Available via AUR: coolercontrol" },
-      { family: "steamos",       level: "unavailable", note: "Requires persistent system daemon; not compatible with SteamOS" },
-      { family: "debian",        level: "partial",     note: "Via Flatpak; daemon install may require manual steps" },
+      { family: "fedora-atomic", level: "full", note: "Via ujust install-coolercontrol" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "Full support" },
@@ -485,9 +413,6 @@ export const APPS = [
     },
     osSupport: [
       { family: "fedora-atomic", level: "full", note: "GPU-agnostic utility" },
-      { family: "arch",          level: "full", note: "GPU-agnostic utility" },
-      { family: "steamos",       level: "full", note: "Particularly useful on SteamOS for managing Flatpak sandboxes" },
-      { family: "debian",        level: "full", note: "GPU-agnostic utility" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "GPU-agnostic" },
@@ -501,21 +426,16 @@ export const APPS = [
     icon: "📊",
     iconBg: "#0a1a00",
     category: "System",
-    desc: "In-game FPS/GPU/temp overlay. Pre-installed on Bazzite and SteamOS. Add MANGOHUD=1 to Steam launch options.",
+    desc: "In-game FPS/GPU/temp overlay. Pre-installed on Bazzite. Add MANGOHUD=1 to Steam launch options.",
     githubRepo: "flightlessmango/MangoHud",
     checkCmd: "mangohud",
-    preinstalled: true,   // pre-installed on Bazzite + SteamOS; checkCmd handles other distros
+    preinstalled: true,   // pre-installed on Bazzite; checkCmd confirms presence
     installMethods: {
       "fedora-atomic": { method: "preinstalled", note: "Pre-installed on Bazzite" },
-      steamos:         { method: "preinstalled", note: "Pre-installed on SteamOS" },
-      arch:            { method: "pacman",       pkg: "mangohud" },
       any:             { method: "flatpak",      flatpakId: "org.freedesktop.Platform.VulkanLayer.MangoHud" },
     },
     osSupport: [
       { family: "fedora-atomic", level: "full", note: "Pre-installed on Bazzite" },
-      { family: "arch",          level: "full", note: "Available via pacman: mangohud" },
-      { family: "steamos",       level: "full", note: "Pre-installed on SteamOS" },
-      { family: "debian",        level: "full", note: "Available as Flatpak extension" },
     ],
     gpuSupport: [
       { gpu: "amd",    level: "full", note: "Full support" },

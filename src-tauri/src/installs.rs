@@ -20,29 +20,8 @@ pub fn run_ujust(recipe: String) -> CommandResult {
 }
 
 #[tauri::command]
-pub fn install_pacman_pkg(pkg: String) -> CommandResult {
-    run_cmd("sudo", &["pacman", "-S", "--noconfirm", "--needed", &pkg])
-}
-
-#[tauri::command]
-pub fn install_aur_pkg(pkg: String) -> CommandResult {
-    if host_command("which").arg("paru").output().map(|o| o.status.success()).unwrap_or(false) {
-        run_cmd("paru", &["-S", "--noconfirm", "--needed", &pkg])
-    } else if host_command("which").arg("yay").output().map(|o| o.status.success()).unwrap_or(false) {
-        run_cmd("yay", &["-S", "--noconfirm", "--needed", &pkg])
-    } else {
-        CommandResult::err("No AUR helper found. Install paru first: sudo pacman -S paru".into())
-    }
-}
-
-#[tauri::command]
 pub fn install_rpm_ostree_pkg(pkg: String) -> CommandResult {
     run_cmd("rpm-ostree", &["install", "--idempotent", &pkg])
-}
-
-#[tauri::command]
-pub fn install_apt_pkg(pkg: String) -> CommandResult {
-    run_cmd("sudo", &["apt-get", "install", "-y", &pkg])
 }
 
 #[tauri::command]
