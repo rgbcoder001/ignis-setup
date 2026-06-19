@@ -40,11 +40,15 @@ modules:
   - name: ignis-setup
     buildsystem: simple
     build-commands:
-      # 1. Frontend → dist/ (Tauri embeds this into the binary at compile time)
+      # 1. Install JS deps
       - npm ci
-      - npm run build
-      # 2. Rust binary against the runtime's libraries
-      - cargo build --release --manifest-path src-tauri/Cargo.toml
+      # 2. Build via the Tauri CLI (NOT raw cargo build). The CLI enables the
+      #    `custom-protocol` cargo feature, which makes the release binary serve
+      #    the embedded frontend over the tauri:// asset protocol. Without it the
+      #    binary falls back to the dev server URL (http://localhost:1420) and the
+      #    window shows "connection refused". The CLI also runs beforeBuildCommand
+      #    (vite build) to produce dist/. --no-bundle: we package it ourselves below.
+      - npm run tauri build -- --no-bundle
       # 3. Install binary, desktop entry, icon, and AppStream metadata
       - install -Dm755 src-tauri/target/release/ignis-setup /app/bin/ignis-setup
       - install -Dm644 flatpak/io.github.billywalters.ignis-setup.desktop
