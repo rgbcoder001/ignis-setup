@@ -82,7 +82,7 @@ pub fn get_system_info() -> SystemInfo {
     if let Ok(content) = std::fs::read_to_string("/proc/cpuinfo") {
         for line in content.lines() {
             if line.starts_with("model name") && info.cpu_model.is_empty() {
-                info.cpu_model = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
+                info.cpu_model = line.split_once(':').map(|x| x.1).unwrap_or("").trim().to_string();
             }
         }
         info.cpu_cores = format!("{} threads", content.lines().filter(|l| l.starts_with("processor")).count());
@@ -106,8 +106,8 @@ pub fn get_system_info() -> SystemInfo {
         for line in lspci.stdout.lines() {
             let lower = line.to_lowercase();
             if lower.contains("vga") || lower.contains("3d") || lower.contains("display") {
-                let desc = line.splitn(2, ':').nth(1).unwrap_or(line)
-                    .splitn(2, ':').last().unwrap_or(line).trim().to_string();
+                let desc = line.split_once(':').map(|x| x.1).unwrap_or(line)
+                    .split_once(':').map(|x| x.1).unwrap_or(line).trim().to_string();
                 info.gpu_model = desc;
                 info.gpu_vendor = if lower.contains("amd") || lower.contains("radeon") { "amd" }
                     else if lower.contains("nvidia") || lower.contains("geforce") { "nvidia" }
