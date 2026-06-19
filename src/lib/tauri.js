@@ -29,11 +29,24 @@ export const addFstabEntry       = (server, share, mountPt, username, protocol) 
 export const testNas             = (server)                 => invoke("test_nas_connection", { server });
 
 // ── Jellyfin ──────────────────────────────────────────────────────────────────
-export const installJellyfin     = (mediaPath)              => invoke("install_jellyfin",    { mediaPath });
-export const jellyfinStatus      = ()                       => invoke("jellyfin_status");
-export const jellyfinStart       = ()                       => invoke("jellyfin_start");
-export const jellyfinStop        = ()                       => invoke("jellyfin_stop");
-export const jellyfinRestart     = ()                       => invoke("jellyfin_restart");
+export const installJellyfin          = (mediaPath)                  => invoke("install_jellyfin",           { mediaPath });
+export const jellyfinStatus           = ()                           => invoke("jellyfin_status");
+export const jellyfinStart            = ()                           => invoke("jellyfin_start");
+export const jellyfinStop             = ()                           => invoke("jellyfin_stop");
+export const jellyfinRestart          = ()                           => invoke("jellyfin_restart");
+
+// ── Cloudflare Tunnel ─────────────────────────────────────────────────────────
+export const cloudflaredCheck         = ()                           => invoke("cloudflared_check");
+export const cloudflaredInstall       = ()                           => invoke("cloudflared_install");
+export const cloudflaredIsLoggedIn    = ()                           => invoke("cloudflared_is_logged_in");
+export const cloudflaredLogin         = ()                           => invoke("cloudflared_login");
+export const cloudflaredCreateTunnel  = (tunnelName)                 => invoke("cloudflared_create_tunnel",  { tunnelName });
+export const cloudflaredWriteConfig   = (tunnelName, hostname)       => invoke("cloudflared_write_config",   { tunnelName, hostname });
+export const cloudflaredRouteDns      = (tunnelName, hostname)       => invoke("cloudflared_route_dns",      { tunnelName, hostname });
+export const cloudflaredServiceInstall= ()                           => invoke("cloudflared_service_install");
+export const cloudflaredServiceStatus = ()                           => invoke("cloudflared_service_status");
+export const cloudflaredServiceStart  = ()                           => invoke("cloudflared_service_start");
+export const cloudflaredServiceStop   = ()                           => invoke("cloudflared_service_stop");
 
 // ── GE-Proton ─────────────────────────────────────────────────────────────────
 export const geProtonStatus      = ()                       => invoke("ge_proton_status");

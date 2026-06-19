@@ -7,12 +7,14 @@ pub mod system;
 pub mod installs;
 pub mod network;
 pub mod jellyfin;
+pub mod cloudflare;
 pub mod ge_proton;
 pub mod install_log;
 
 use installs::*;
 use network::*;
 use jellyfin::*;
+use cloudflare::*;
 use ge_proton::*;
 use install_log::*;
 use system::get_system_info;
@@ -50,6 +52,18 @@ pub fn run() {
             jellyfin_start,
             jellyfin_stop,
             jellyfin_restart,
+            // Cloudflare Tunnel
+            cloudflared_check,
+            cloudflared_install,
+            cloudflared_is_logged_in,
+            cloudflared_login,
+            cloudflared_create_tunnel,
+            cloudflared_write_config,
+            cloudflared_route_dns,
+            cloudflared_service_install,
+            cloudflared_service_status,
+            cloudflared_service_start,
+            cloudflared_service_stop,
             // GE-Proton
             ge_proton_status,
             install_ge_proton,

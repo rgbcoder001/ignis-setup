@@ -5,6 +5,10 @@ import { checkFlatpak, checkCmdExists,
          installFlatpak, runUjust, runScript, runScriptArgs,
          installPacman, installAur, installRpmOstree, installApt,
          installJellyfin, jellyfinStatus, jellyfinStart, jellyfinStop, jellyfinRestart,
+         cloudflaredCheck, cloudflaredInstall, cloudflaredIsLoggedIn, cloudflaredLogin,
+         cloudflaredCreateTunnel, cloudflaredWriteConfig, cloudflaredRouteDns,
+         cloudflaredServiceInstall, cloudflaredServiceStatus,
+         cloudflaredServiceStart, cloudflaredServiceStop,
          listConnections, setStaticIp, setDhcp,
          testNas, mountNas, addFstabEntry,
          geProtonStatus, installGeProton, setGeProtonDefault,
@@ -368,10 +372,11 @@ function NetworkPage() {
       </div>
 
       <div style={{...s.row, borderBottom:"1px solid var(--border)", marginBottom:20}}>
-        <Tab id="static" label="📡 Static IP"/>
-        <Tab id="nas"    label="🗄️ NAS Mount"/>
-        <Tab id="jf"     label="📺 Jellyfin Server"/>
-        <Tab id="migrate" label="🔄 Migrate from Windows"/>
+        <Tab id="static"     label="📡 Static IP"/>
+        <Tab id="nas"        label="🗄️ NAS Mount"/>
+        <Tab id="jf"         label="📺 Jellyfin Server"/>
+        <Tab id="cloudflare" label="☁️ Cloudflare Tunnel"/>
+        <Tab id="migrate"    label="🔄 Migrate from Windows"/>
       </div>
 
       {/* ── Static IP tab ─────────────────────────────────────────────── */}
@@ -490,6 +495,9 @@ function NetworkPage() {
 
       {/* ── Jellyfin tab ───────────────────────────────────────────────── */}
       {tab === "jf" && <JellyfinPanel/>}
+
+      {/* ── Cloudflare Tunnel tab ──────────────────────────────────────── */}
+      {tab === "cloudflare" && <CloudflarePanel/>}
 
       {/* ── Migration tab ──────────────────────────────────────────────── */}
       {tab === "migrate" && <JellyfinMigrationPanel/>}
@@ -894,6 +902,295 @@ function JellyfinMigrationPanel() {
           <Terminal lines={termLines}/>
 
           <Btn variant="ghost" onClick={()=>{setStep(0);setDone(false);setTermLines([]);}}>Start over</Btn>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Cloudflare Tunnel panel ───────────────────────────────────────────────────
+
+function CloudflarePanel() {
+  // phase: "check" | "install" | "login" | "configure" | "running"
+  const [phase,        setPhase]       = useState("check");
+  const [installed,    setInstalled]   = useState(null);
+  const [loggedIn,     setLoggedIn]    = useState(null);
+  const [svcStatus,    setSvcStatus]   = useState("unknown");
+  const [tunnelName,   setTunnelName]  = useState("jellyfin");
+  const [hostname,     setHostname]    = useState("");
+  const [termLines,    setTermLines]   = useState([]);
+  const [busy,         setBusy]        = useState(false);
+
+  const log = (text, type = "muted") => setTermLines(p => [...p, { text, type }]);
+
+  const checkAll = async () => {
+    const binOk  = await cloudflaredCheck().catch(() => ({ success: false }));
+    const certOk = await cloudflaredIsLoggedIn().catch(() => ({ success: false }));
+    const svcOk  = await cloudflaredServiceStatus().catch(() => ({ success: false }));
+    const svc    = svcOk.success ? svcOk.stdout.trim() : "inactive";
+
+    setInstalled(binOk.success);
+    setLoggedIn(certOk.success);
+    setSvcStatus(svc);
+
+    if      (!binOk.success)  setPhase("install");
+    else if (!certOk.success) setPhase("login");
+    else if (svc !== "active") setPhase("configure");
+    else                       setPhase("running");
+  };
+
+  useEffect(() => { checkAll(); }, []);
+
+  const doInstall = async () => {
+    setBusy(true); setTermLines([]);
+    log("Downloading cloudflared binary from GitHub…", "info");
+    try {
+      const r = await cloudflaredInstall();
+      if (r.success) { log("✓ " + r.stdout.trim(), "ok"); setInstalled(true); setPhase("login"); }
+      else           { log("✗ " + (r.stderr || r.stdout), "err"); }
+    } catch(e) { log("✗ " + e, "err"); }
+    setBusy(false);
+  };
+
+  const doLogin = async () => {
+    setBusy(true); setTermLines([]);
+    log("Opening Cloudflare login in your system browser…", "info");
+    log("Complete the OAuth flow in the browser, then return here.", "muted");
+    try {
+      const r = await cloudflaredLogin();
+      if (r.success) { log("✓ Logged in — cert.pem saved.", "ok"); setLoggedIn(true); setPhase("configure"); }
+      else           { log("✗ " + (r.stderr || r.stdout), "err"); }
+    } catch(e) { log("✗ " + e, "err"); }
+    setBusy(false);
+  };
+
+  const doSetup = async () => {
+    if (!tunnelName || !hostname) return;
+    setBusy(true); setTermLines([]);
+
+    log(`Creating tunnel "${tunnelName}"…`, "info");
+    const r1 = await cloudflaredCreateTunnel(tunnelName).catch(e => ({ success: false, stderr: String(e) }));
+    // "already exists" is acceptable — continue
+    if (!r1.success && !r1.stdout?.includes("already exists") && !r1.stderr?.includes("already exists")) {
+      log("✗ " + r1.stderr, "err"); setBusy(false); return;
+    }
+    log("✓ Tunnel ready.", "ok");
+
+    log("Writing ~/.cloudflared/config.yml…", "info");
+    const r2 = await cloudflaredWriteConfig(tunnelName, hostname).catch(e => ({ success: false, stderr: String(e) }));
+    if (!r2.success) { log("✗ " + r2.stderr, "err"); setBusy(false); return; }
+    log("✓ " + r2.stdout, "ok");
+
+    log("Creating Cloudflare DNS route…", "info");
+    const r3 = await cloudflaredRouteDns(tunnelName, hostname).catch(e => ({ success: false, stderr: String(e) }));
+    if (r3.success) {
+      log("✓ DNS CNAME created.", "ok");
+    } else {
+      log("⚠ DNS routing failed — add the CNAME manually in your Cloudflare dashboard.", "warn");
+      log("  CNAME: " + hostname + " → " + tunnelName + ".cfargotunnel.com", "muted");
+    }
+
+    log("Installing systemd user service…", "info");
+    const r4 = await cloudflaredServiceInstall().catch(e => ({ success: false, stderr: String(e) }));
+    if (!r4.success) { log("✗ " + r4.stderr, "err"); setBusy(false); return; }
+    log("✓ " + r4.stdout, "ok");
+    log(`\nJellyfin is now accessible at https://${hostname}`, "info");
+
+    await checkAll();
+    setBusy(false);
+  };
+
+  const statusColour = { active:"var(--green)", inactive:"var(--muted)", failed:"var(--red)", unknown:"var(--muted)" };
+  const statusLabel  = { active:"● Running", inactive:"○ Stopped", failed:"✗ Failed", unknown:"— Unknown" };
+
+  // Step indicator chips at the top
+  const steps = [
+    { id:"install",   label:"1  Install",   done: installed === true },
+    { id:"login",     label:"2  Login",      done: loggedIn  === true },
+    { id:"configure", label:"3  Configure",  done: svcStatus === "active" },
+    { id:"running",   label:"4  Running",    done: svcStatus === "active" },
+  ];
+
+  return (
+    <div style={{ maxWidth: 620 }}>
+      <h3 style={{ fontWeight: 700, marginBottom: 4 }}>Cloudflare Tunnel — Jellyfin Remote Access</h3>
+      <p style={{ color: "var(--muted)", fontSize: 12, marginBottom: 16, lineHeight: 1.6 }}>
+        Creates a secure outbound tunnel so you can reach your Jellyfin server from your phone
+        or anywhere on the internet — no port forwarding or static IP needed.
+        Requires a free <strong style={{ color: "var(--text)" }}>Cloudflare account</strong> and
+        a domain managed by Cloudflare.
+      </p>
+
+      {/* Step chips */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+        {steps.map((st, i) => (
+          <div key={st.id} style={{
+            padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+            background: st.done
+              ? "rgba(61,220,132,.15)"
+              : phase === st.id
+                ? "rgba(224,92,42,.15)"
+                : "var(--surface2)",
+            color: st.done
+              ? "var(--green)"
+              : phase === st.id
+                ? "var(--accent2)"
+                : "var(--muted)",
+            border: `1px solid ${st.done ? "rgba(61,220,132,.3)" : phase === st.id ? "rgba(224,92,42,.3)" : "var(--border)"}`,
+          }}>
+            {st.done ? "✓ " : ""}{st.label}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Phase: Install ── */}
+      {phase === "install" && (
+        <div style={s.col}>
+          <div style={{ ...s.card, background: "var(--surface2)" }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>What will be installed</div>
+            <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.7 }}>
+              Downloads the <code style={{ fontFamily: "var(--mono)", color: "var(--blue)" }}>cloudflared</code> binary
+              from the official Cloudflare GitHub release into{" "}
+              <code style={{ fontFamily: "var(--mono)", color: "var(--blue)" }}>~/.local/bin/</code>.
+              No system-wide changes — no sudo required.
+            </p>
+          </div>
+          <Btn onClick={doInstall} disabled={busy}>
+            {busy ? <><Spinner/> Downloading…</> : "Install cloudflared"}
+          </Btn>
+          <Terminal lines={termLines}/>
+        </div>
+      )}
+
+      {/* ── Phase: Login ── */}
+      {phase === "login" && (
+        <div style={s.col}>
+          <div style={{ ...s.card, background: "var(--surface2)" }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Authenticate with Cloudflare</div>
+            <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.7 }}>
+              Clicking the button below runs{" "}
+              <code style={{ fontFamily: "var(--mono)", color: "var(--blue)" }}>cloudflared tunnel login</code>,
+              which opens your system browser to the Cloudflare OAuth page.
+              Once you approve, a certificate is saved to{" "}
+              <code style={{ fontFamily: "var(--mono)", color: "var(--blue)" }}>~/.cloudflared/cert.pem</code> and
+              this step completes automatically.
+            </p>
+          </div>
+          <div style={{ background: "rgba(245,197,66,.08)", border: "1px solid rgba(245,197,66,.2)",
+            borderRadius: 6, padding: "8px 12px", fontSize: 12, color: "var(--yellow)" }}>
+            ⚠ Keep this window open while you authenticate in the browser.
+            The button will stay in "Waiting…" state until auth completes.
+          </div>
+          <Btn onClick={doLogin} disabled={busy}>
+            {busy ? <><Spinner/> Waiting for browser auth…</> : "Login to Cloudflare"}
+          </Btn>
+          <Terminal lines={termLines}/>
+        </div>
+      )}
+
+      {/* ── Phase: Configure ── */}
+      {phase === "configure" && (
+        <div style={s.col}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 4 }}>
+            <div>
+              <div style={s.label}>Tunnel name</div>
+              <input style={s.input} value={tunnelName} onChange={e => setTunnelName(e.target.value)}
+                placeholder="jellyfin"/>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
+                Used internally — one word, no spaces.
+              </div>
+            </div>
+            <div>
+              <div style={s.label}>Public hostname (your domain)</div>
+              <input style={s.input} value={hostname} onChange={e => setHostname(e.target.value)}
+                placeholder="jellyfin.yourdomain.com"/>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
+                Must be on a zone managed by Cloudflare.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ ...s.card, background: "rgba(78,166,245,.06)", border: "1px solid rgba(78,166,245,.2)", marginBottom: 0 }}>
+            <div style={{ fontSize: 12, color: "var(--blue)", lineHeight: 1.7 }}>
+              <strong>What this does:</strong><br/>
+              ① Creates a named tunnel in your Cloudflare account<br/>
+              ② Writes <code style={{ fontFamily: "var(--mono)" }}>~/.cloudflared/config.yml</code> pointing the tunnel at <code style={{ fontFamily: "var(--mono)" }}>http://localhost:8096</code><br/>
+              ③ Attempts to create a DNS CNAME for your hostname (warns if it fails — you can add it manually)<br/>
+              ④ Installs a systemd user service that starts the tunnel automatically on login
+            </div>
+          </div>
+
+          <Btn onClick={doSetup} disabled={busy || !tunnelName || !hostname}>
+            {busy ? <><Spinner/> Setting up tunnel…</> : "Create tunnel & start service"}
+          </Btn>
+          <Terminal lines={termLines}/>
+        </div>
+      )}
+
+      {/* ── Phase: Running ── */}
+      {phase === "running" && (
+        <div style={s.col}>
+          <div style={{ ...s.card, background: "rgba(61,220,132,.06)", border: "1px solid rgba(61,220,132,.25)" }}>
+            <div style={{ ...s.row, marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: statusColour[svcStatus] || statusColour.unknown }}>
+                {statusLabel[svcStatus] || statusLabel.unknown}
+              </div>
+              <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 8 }}>cloudflared-jellyfin</span>
+              <Btn variant="ghost" small onClick={checkAll} style={{ marginLeft: "auto" }}>⟳</Btn>
+            </div>
+            {hostname && (
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                Jellyfin reachable at{" "}
+                <strong style={{ color: "var(--text)", fontFamily: "var(--mono)" }}>
+                  https://{hostname}
+                </strong>
+              </div>
+            )}
+          </div>
+
+          <div style={s.row}>
+            {svcStatus !== "active" && (
+              <Btn variant="success" onClick={async () => {
+                setTermLines([]);
+                const r = await cloudflaredServiceStart().catch(e => ({ success: false, stderr: String(e) }));
+                log(r.success ? "✓ Tunnel started." : "✗ " + r.stderr, r.success ? "ok" : "err");
+                await checkAll();
+              }}>Start</Btn>
+            )}
+            {svcStatus === "active" && (
+              <Btn variant="danger" onClick={async () => {
+                setTermLines([]);
+                const r = await cloudflaredServiceStop().catch(e => ({ success: false, stderr: String(e) }));
+                log(r.success ? "✓ Tunnel stopped." : "✗ " + r.stderr, r.success ? "ok" : "err");
+                await checkAll();
+              }}>Stop</Btn>
+            )}
+            <Btn variant="ghost" onClick={() => { setPhase("configure"); setTermLines([]); }}>
+              Reconfigure →
+            </Btn>
+          </div>
+
+          <div style={{ ...s.card, background: "var(--surface2)" }}>
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 8 }}>Troubleshooting</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.8 }}>
+              <strong style={{ color: "var(--text)" }}>Tunnel not connecting?</strong><br/>
+              • Check the service log: <code style={{ fontFamily: "var(--mono)", color: "var(--blue)" }}>journalctl --user -u cloudflared-jellyfin -f</code><br/>
+              • Confirm Jellyfin is running on port 8096 in the Jellyfin Server tab<br/>
+              • Verify the CNAME exists in your Cloudflare DNS dashboard<br/>
+              <strong style={{ color: "var(--text)", marginTop: 4, display: "block" }}>Manual DNS (if auto-routing failed):</strong>
+              Add a CNAME record in Cloudflare: <code style={{ fontFamily: "var(--mono)", color: "var(--blue)" }}>{hostname || "jellyfin.yourdomain.com"}</code> →{" "}
+              <code style={{ fontFamily: "var(--mono)", color: "var(--blue)" }}>{tunnelName || "jellyfin"}.cfargotunnel.com</code> (Proxied)
+            </div>
+          </div>
+
+          <Terminal lines={termLines}/>
+        </div>
+      )}
+
+      {/* Initial check spinner */}
+      {phase === "check" && (
+        <div style={{ color: "var(--muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+          <Spinner/> Checking cloudflared status…
         </div>
       )}
     </div>
