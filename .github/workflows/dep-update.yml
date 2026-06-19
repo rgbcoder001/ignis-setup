@@ -1,0 +1,276 @@
+name: Weekly dependency update
+
+# Runs every Sunday at 09:00 UTC.
+# For each direct Rust and npm dependency, targets the n-1 stable version
+# (one behind the latest release) rather than bleeding-edge, giving the
+# ecosystem time to surface issues before we adopt them.
+# Also runs cargo audit, cargo deny, and npm audit for supply-chain review.
+# Opens a PR with any changes; if nothing changed, no PR is created.
+
+on:
+  schedule:
+    - cron: '0 9 * * 0'   # Sunday 09:00 UTC
+  workflow_dispatch:       # manual trigger from the Actions tab
+
+jobs:
+  update-deps:
+    name: Update to n-1 + security audit
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Cache Rust build artefacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          # cargo install output also lives in ~/.cargo/bin — cache it so
+          # tool installs only happen on first run or after toolchain bumps.
+          cache-directories: ~/.cargo/bin
+
+      # ------ Install cargo tooling ----------------------------------------
+
+      - name: Install cargo-audit and cargo-deny
+        run: |
+          cargo install cargo-audit --locked 2>/dev/null || true
+          cargo install cargo-deny  --locked 2>/dev/null || true
+
+      # ------ Rust: pin direct deps to n-1 -----------------------------------
+
+      - name: Update Cargo deps to n-1
+        working-directory: src-tauri
+        run: |
+          python3 - << 'PYEOF'
+          import subprocess, json, urllib.request, time, sys
+
+          def parse_semver(v):
+              try:
+                  return tuple(int(x) for x in v.split('-')[0].split('.'))
+              except Exception:
+                  return (0, 0, 0)
+
+          # cargo metadata gives us the direct-dependency names without any
+          # extra tools — it is always available on the stable toolchain.
+          raw = subprocess.check_output(
+              ['cargo', 'metadata', '--format-version', '1', '--no-deps'],
+              text=True
+          )
+          meta = json.loads(raw)
+
+          root_id = meta['resolve']['root']
+          root_node = next(n for n in meta['resolve']['nodes'] if n['id'] == root_id)
+          direct_deps = {d['name'] for d in root_node.get('deps', [])}
+
+          print(f'Direct deps: {", ".join(sorted(direct_deps))}')
+
+          for name in sorted(direct_deps):
+              url = (
+                  f'https://crates.io/api/v1/crates/{name}/versions'
+              )
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      'User-Agent': (
+                          'ignis-dep-updater/1.0 '
+                          '(https://github.com/billywalters/ignis-setup)'
+                      )
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=15) as r:
+                      vdata = json.load(r)
+              except Exception as e:
+                  print(f'  {name}: skip — could not fetch versions ({e})')
+                  continue
+
+              stable = sorted(
+                  [
+                      v['num'] for v in vdata['versions']
+                      if not v['yanked']
+                      and not any(
+                          tag in v['num']
+                          for tag in ('alpha', 'beta', 'rc', 'pre', 'dev')
+                      )
+                  ],
+                  key=parse_semver,
+                  reverse=True,
+              )
+
+              if len(stable) < 2:
+                  print(f'  {name}: skip — fewer than 2 stable versions found')
+                  continue
+
+              latest = stable[0]
+              target = stable[1]   # n-1: one behind latest
+
+              result = subprocess.run(
+                  ['cargo', 'update', '-p', name, '--precise', target],
+                  capture_output=True,
+                  text=True,
+              )
+              if result.returncode == 0:
+                  print(f'  {name}: pinned to {target} (latest is {latest})')
+              else:
+                  # --precise may fail when the target doesn't satisfy the
+                  # Cargo.toml semver range; fall back to latest compatible.
+                  result2 = subprocess.run(
+                      ['cargo', 'update', '-p', name],
+                      capture_output=True,
+                      text=True,
+                  )
+                  status = 'updated to compatible' if result2.returncode == 0 else 'skipped'
+                  print(f'  {name}: n-1 {target} out of semver range — {status}')
+
+              time.sleep(0.4)   # be polite to crates.io rate limiter
+          PYEOF
+
+      # ------ Rust: security audit ------------------------------------------
+
+      - name: cargo audit — CVE check
+        working-directory: src-tauri
+        # --deny warnings makes the step fail on any advisory match
+        run: cargo audit --deny warnings
+
+      - name: cargo deny — supply chain check
+        working-directory: src-tauri
+        # Checks advisories, banned crates, licenses, and source origins
+        run: cargo deny check
+
+      # ------ npm: pin direct deps to n-1 ------------------------------------
+
+      - name: Install current npm deps
+        run: npm install
+
+      - name: Update npm deps to n-1
+        run: |
+          python3 - << 'PYEOF'
+          import json, urllib.request, sys
+
+          def parse_semver(v):
+              try:
+                  return tuple(int(x) for x in v.split('-')[0].split('.'))
+              except Exception:
+                  return (0, 0, 0)
+
+          with open('package.json') as f:
+              pkg = json.load(f)
+
+          # Keep @tauri-apps/* packages in sync — they version-lock together.
+          skip_prefixes = ('@tauri-apps/',)
+
+          changed = False
+          for section in ('dependencies', 'devDependencies'):
+              for name, spec in list(pkg.get(section, {}).items()):
+                  if any(name.startswith(p) for p in skip_prefixes):
+                      print(f'  {name}: skip (tauri ecosystem — keep in sync)')
+                      continue
+
+                  safe = name.replace('/', '%2F')
+                  url = f'https://registry.npmjs.org/{safe}'
+                  try:
+                      with urllib.request.urlopen(url, timeout=15) as r:
+                          data = json.load(r)
+                  except Exception as e:
+                      print(f'  {name}: skip — registry fetch failed ({e})')
+                      continue
+
+                  stable = sorted(
+                      [
+                          v for v in data.get('versions', {})
+                          if not any(
+                              tag in v
+                              for tag in ('alpha', 'beta', 'rc', 'pre', 'canary', 'next', 'dev')
+                          )
+                      ],
+                      key=parse_semver,
+                      reverse=True,
+                  )
+
+                  if len(stable) < 2:
+                      print(f'  {name}: skip — fewer than 2 stable versions')
+                      continue
+
+                  latest = stable[0]
+                  target = stable[1]   # n-1
+
+                  # Preserve the range prefix the project already uses (^ or ~)
+                  prefix = '^' if spec.startswith('^') else ('~' if spec.startswith('~') else '')
+                  new_spec = f'{prefix}{target}'
+
+                  if new_spec != spec:
+                      pkg[section][name] = new_spec
+                      print(f'  {name}: {spec} -> {new_spec}  (latest: {latest})')
+                      changed = True
+                  else:
+                      print(f'  {name}: already at n-1 ({spec})')
+
+          if changed:
+              with open('package.json', 'w') as f:
+                  json.dump(pkg, f, indent=2)
+                  f.write('\n')
+              print('\npackage.json updated.')
+          else:
+              print('\nNo npm changes needed.')
+          PYEOF
+
+      - name: Reinstall npm deps after version changes
+        run: npm install
+
+      # ------ npm: security audit -------------------------------------------
+
+      - name: npm audit — CVE check (high/critical only)
+        # audit-level=high: ignore low/moderate advisories to reduce noise;
+        # the dependency-review.yml PR check catches those on individual PRs.
+        run: npm audit --audit-level=high
+
+      # ------ Open PR -------------------------------------------------------
+
+      - name: Build security-audit summary for PR body
+        id: summary
+        run: |
+          {
+            echo 'body<<PREOF'
+            echo '## Weekly dependency update (n-1 strategy)'
+            echo ''
+            echo 'This automated PR updates **Rust (Cargo)** and **npm** direct dependencies'
+            echo 'to the **n-1** version — one stable release behind the latest.'
+            echo ''
+            echo '### Why n-1?'
+            echo 'Newly published packages occasionally carry accidental breakage or'
+            echo '(rarely) intentional supply-chain payloads. Waiting one release gives'
+            echo 'the community time to identify issues before we adopt them.'
+            echo ''
+            echo '### Security checks run'
+            echo '| Check | Scope |'
+            echo '|---|---|'
+            echo '| `cargo audit` | Rust: RustSec advisory DB — known CVEs |'
+            echo '| `cargo deny` | Rust: supply-chain sources, banned crates, licenses |'
+            echo '| `npm audit` | npm: advisory DB, high/critical severity |'
+            echo ''
+            echo '> All checks passed for the versions chosen in this PR.'
+            echo '> Review the diff and merge once CI is green.'
+            echo ''
+            echo '_Auto-generated by `.github/workflows/dep-update.yml`_'
+            echo 'PREOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: dep-update/weekly-${{ github.run_id }}
+          delete-branch: true
+          title: "chore(deps): weekly n-1 dependency update"
+          commit-message: "chore(deps): update Cargo and npm deps to n-1 versions"
+          labels: dependencies,security
+          body: ${{ steps.summary.outputs.body }}
