@@ -84,6 +84,31 @@ jobs:
           FILENAME=$(basename "${APPIMAGE}")
           SIZE=$(du -sh "${APPIMAGE}" | cut -f1)
           SHORT_SHA="${GITHUB_SHA:0:7}"
+          BUILT=$(date -u '+%Y-%m-%d %H:%M UTC')
+
+          # Write release notes to a file to avoid YAML quoting issues
+          cat > /tmp/nightly-notes.md << EOF
+          ## Ignis — Nightly Build
+
+          Automatically updated on every push to \`main\`. Not a stable release.
+
+          **Built from** [\`${SHORT_SHA}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})
+
+          ### Install on Bazzite / Linux
+
+          \`\`\`bash
+          chmod +x ${FILENAME}
+          ./${FILENAME}
+          \`\`\`
+
+          AppImage runs on any Linux distro without installation — no sudo, no rpm-ostree reboot required.
+
+          | | |
+          |---|---|
+          | Commit | \`${SHORT_SHA}\` |
+          | Size | ${SIZE} |
+          | Built | ${BUILT} |
+          EOF
 
           # Delete old nightly release and tag so assets are always fresh
           gh release delete nightly --yes 2>/dev/null || true
@@ -92,26 +117,7 @@ jobs:
           gh release create nightly \
             --prerelease \
             --title "Nightly Build" \
-            --notes "## Ignis — Nightly Build
-
-> Automatically updated on every push to \`main\`. Not a stable release.
-
-**Built from** [\`${SHORT_SHA}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})
-
-### Install on Bazzite / Linux
-
-\`\`\`bash
-chmod +x ${FILENAME}
-./${FILENAME}
-\`\`\`
-
-AppImage runs on any Linux distro without installation — no sudo, no rpm-ostree reboot required.
-
-| | |
-|---|---|
-| Commit | \`${SHORT_SHA}\` |
-| Size | ${SIZE} |
-| Built | $(date -u '+%Y-%m-%d %H:%M UTC') |" \
+            --notes-file /tmp/nightly-notes.md \
             "${APPIMAGE}"
 
       - name: Post summary
